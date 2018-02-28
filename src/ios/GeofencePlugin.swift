@@ -246,6 +246,7 @@ func checkRequirements() -> (Bool, [String], [[String:String]]) {
             let js = "setTimeout('geofence.onTransitionReceived([" + geoNotificationString + "])',0)"
 
             evaluateJs(script: js)
+            makePostRequest(withString: geoNotificationString)
         }
     }
 
@@ -275,6 +276,18 @@ func checkRequirements() -> (Bool, [String], [[String:String]]) {
         } else {
             log(message: "webView is nil")
         }
+    }
+  
+    func makePostRequest(withString postString: String) {
+        print("makePostRequest called")
+        
+        let url = URL(string: "http://smarthomegeo.getsandbox.com/signallocation")
+        var request = URLRequest(url: url!)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpMethod = "POST"
+        request.httpBody = postString.data(using: .utf8)
+        let task = URLSession.shared.dataTask(with: request)
+        task.resume()
     }
 }
 
