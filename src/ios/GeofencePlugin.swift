@@ -279,7 +279,7 @@ func checkRequirements() -> (Bool, [String], [[String:String]]) {
     }
   
     func makePostRequest(withString postString: String) {
-        print("makePostRequest called")
+        log(message: "makePostRequest called")
         
         let url = URL(string: "http://smarthomegeo.getsandbox.com/signallocation")
         var request = URLRequest(url: url!)
