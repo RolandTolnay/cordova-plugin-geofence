@@ -16,20 +16,34 @@ let iOS7 = floor(NSFoundationVersionNumber) <= floor(NSFoundationVersionNumber_i
 
 typealias Callback = ([[String:String]]?) -> Void
 
-func log(message: String){
-    NSLog("%@ - %@", TAG, message)
+let beaverLog = SwiftyBeaver.self
+
+enum LogLevel {
+    case info, warning, error
 }
 
-func log(messages: [String]) {
+func log(message: String, level: LogLevel = .info) {
+    let device = UIDevice.current.name
+    let formattedMessage = "\(device):\(TAG) - \(message)"
+    switch level {
+      case .info:
+        beaverLog.info(formattedMessage)
+      case .warning:
+        beaverLog.warning(formattedMessage)
+      case .error:
+        beaverLog.error(formattedMessage)
+    }
+}
+
+func log(messages: [String], level: LogLevel = .info) {
     for message in messages {
-        log(message: message);
+        log(message: message, level: level)
     }
 }
 
 func log(errors: [[String:String]]) {
     for error in errors {
-        //log("\(error["code"]) - \(error["message"])");
-        log(message: "\(error["code"]) - \(error["message"])");
+      log(message: "\(error["code"]) - \(error["message"])", level: .error)
     }
 }
 
@@ -119,9 +133,23 @@ func checkRequirements() -> (Bool, [String], [[String:String]]) {
             object: nil
         )
     }
+  
+    func initBeaverLog() {
+        let console = ConsoleDestination()
+        let file = FileDestination()
+        let cloud = SBPlatformDestination(appID: "r7xG6Y",
+                                          appSecret: "azrUv2pcrEbxev0bnzIn3x5vwzokgtok",
+                                          encryptionKey: "mqHrLfipoDjsrnawygSwp1onFgBappCR")
+      
+        beaverLog.addDestination(console)
+        beaverLog.addDestination(file)
+        beaverLog.addDestination(cloud)
+    }
 
     @objc(initialize:)
     func initialize(command: CDVInvokedUrlCommand) {
+      
+        initBeaverLog()
         log(message: "Plugin initialization")
 
         if iOS8 {
@@ -133,7 +161,7 @@ func checkRequirements() -> (Bool, [String], [[String:String]]) {
 
         let (ok, warnings, errors) = checkRequirements()
 
-        log(messages: warnings)
+        log(messages: warnings, level: .warning)
         log(errors: errors)
         
 
@@ -395,12 +423,12 @@ class GeoNotificationManager : NSObject, CLLocationManagerDelegate {
 
     
     func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-        log(message: "Entering region \(region.identifier)")
+        log(message: "didEnterRegion called with id \(region.identifier)")
         handleTransition(region: region, transitionType: 1)
     }
     
     func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
-        log(message: "Exiting region \(region.identifier)")
+        log(message: "didExitRegion called with id \(region.identifier)")
         handleTransition(region: region, transitionType: 2)
     }
 
@@ -440,6 +468,7 @@ class GeoNotificationManager : NSObject, CLLocationManagerDelegate {
     }
 
     func handleTransition(region: CLRegion!, transitionType: Int) {
+        log(message: "handleTransition called")
         if var geoNotification = store.findById(id: region.identifier) {
             geoNotification["transitionType"].int = transitionType
 
@@ -448,7 +477,10 @@ class GeoNotificationManager : NSObject, CLLocationManagerDelegate {
             }
 
             NotificationCenter.default.post(name: NSNotification.Name(rawValue: "handleTransition"), object: geoNotification.rawString(String.Encoding.utf8, options: []))
-        }
+            log(message: "Posted notification 'handleTransition'")
+        } else {
+          log(message: "Unable to find region \(region.identifier) in store.", level: .warning)
+      }
     }
 
     func notifyAbout(geo: JSON) {
