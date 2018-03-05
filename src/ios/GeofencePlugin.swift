@@ -316,8 +316,8 @@ func checkRequirements() -> (Bool, [String], [[String:String]]) {
         
         let deviceName = UIDevice.current.name
         var postStringWithDevice = postString
-        postStringWithDevice.insert(contentsOf: "\"deviceName\":\"\(deviceName)\",",
-                                            at: postString.index(after: postString.startIndex))
+        postStringWithDevice.insert(contentsOf: "\"deviceName\":\"\(deviceName)\",".characters,
+                                    at: postString.index(after: postString.startIndex))
 
         request.httpBody = postStringWithDevice.data(using: .utf8)
         let task = URLSession.shared.dataTask(with: request)
