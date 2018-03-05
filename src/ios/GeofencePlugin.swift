@@ -19,13 +19,15 @@ typealias Callback = ([[String:String]]?) -> Void
 let beaverLog = SwiftyBeaver.self
 
 enum LogLevel {
-    case info, warning, error
+    case debug, info, warning, error
 }
 
 func log(message: String, level: LogLevel = .info) {
     let device = UIDevice.current.name
     let formattedMessage = "\(device):\(TAG) - \(message)"
     switch level {
+      case .debug:
+        beaverLog.debug(formattedMessage)
       case .info:
         beaverLog.info(formattedMessage)
       case .warning:
@@ -107,8 +109,14 @@ func checkRequirements() -> (Bool, [String], [[String:String]]) {
     return (ok, warnings, errors)
 }
 
+protocol GeoTransitionDelegate {
+  
+  func geoNotificationManager(_ notificationManager: GeoNotificationManager,
+                              didReceiveGeoTransition transitionData: JSON)
+}
+
 @available(iOS 8.0, *)
-@objc(HWPGeofencePlugin) class GeofencePlugin : CDVPlugin {
+@objc(HWPGeofencePlugin) class GeofencePlugin : CDVPlugin, GeoTransitionDelegate {
     static let ERROR_GEOFENCE_LIMIT_EXCEEDED = "GEOFENCE_LIMIT_EXCEEDED"
     static let ERROR_GEOFENCE_NOT_AVAILABLE = "GEOFENCE_NOT_AVAILABLE"
     static let ERROR_LOCATION_SERVICES_DISABLED = "LOCATION_SERVICES_DISABLED"
@@ -157,6 +165,7 @@ func checkRequirements() -> (Bool, [String], [[String:String]]) {
         }
 
         geoNotificationManager = GeoNotificationManager()
+        geoNotificationManager.delegate = self
         geoNotificationManager.registerPermissions()
 
         let (ok, warnings, errors) = checkRequirements()
@@ -268,14 +277,7 @@ func checkRequirements() -> (Bool, [String], [[String:String]]) {
 
     @objc(didReceiveTransition:)
     func didReceiveTransition (notification: NSNotification) {
-        log(message: "didReceiveTransition")
-        if let geoNotificationString = notification.object as? String {
-
-            let js = "setTimeout('geofence.onTransitionReceived([" + geoNotificationString + "])',0)"
-
-            evaluateJs(script: js)
-            makePostRequest(withString: geoNotificationString)
-        }
+      
     }
 
     @objc(didReceiveLocalNotification:)
@@ -307,8 +309,8 @@ func checkRequirements() -> (Bool, [String], [[String:String]]) {
     }
   
     func makePostRequest(withString postString: String) {
-        log(message: "makePostRequest called")
-        
+        log(message: "makePostRequest called", level: .debug)
+      
         let url = URL(string: "http://smarthomegeo.getsandbox.com/signallocation")
         var request = URLRequest(url: url!)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -323,6 +325,20 @@ func checkRequirements() -> (Bool, [String], [[String:String]]) {
         let task = URLSession.shared.dataTask(with: request)
         task.resume()
     }
+  
+    func geoNotificationManager(_ notificationManager: GeoNotificationManager,
+                                didReceiveGeoTransition transitionData: JSON) {
+        log(message: "didReceiveGeoTransition called in GeofencePlugin", level: .debug)
+      
+        if let geoNotificationString = transitionData.rawString(String.Encoding.utf8, options: []) {
+          let js = "setTimeout('geofence.onTransitionReceived([" + geoNotificationString + "])',0)"
+          
+          evaluateJs(script: js)
+          makePostRequest(withString: geoNotificationString)
+        } else {
+          log(message: "Unable to parse transitionData to string at didReceiveGeoTransition", level: .error)
+        }
+    }
 }
 
 struct Command {
@@ -335,7 +351,9 @@ class GeoNotificationManager : NSObject, CLLocationManagerDelegate {
     let locationManager = CLLocationManager()
     let store = GeoNotificationStore()
     var addOrUpdateCallbacks = [CLCircularRegion:Command]()
-
+  
+    var delegate: GeoTransitionDelegate?
+  
     override init() {
         log(message: "GeoNotificationManager init")
         super.init()
@@ -423,12 +441,12 @@ class GeoNotificationManager : NSObject, CLLocationManagerDelegate {
 
     
     func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-        log(message: "didEnterRegion called with id \(region.identifier)")
+        log(message: "didEnterRegion called with id \(region.identifier)", level: .debug)
         handleTransition(region: region, transitionType: 1)
     }
     
     func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
-        log(message: "didExitRegion called with id \(region.identifier)")
+        log(message: "didExitRegion called with id \(region.identifier)", level: .debug)
         handleTransition(region: region, transitionType: 2)
     }
 
@@ -475,9 +493,14 @@ class GeoNotificationManager : NSObject, CLLocationManagerDelegate {
             if geoNotification["notification"].exists() {
                 notifyAbout(geo: geoNotification)
             }
-
-            NotificationCenter.default.post(name: NSNotification.Name(rawValue: "handleTransition"), object: geoNotification.rawString(String.Encoding.utf8, options: []))
-            log(message: "Posted notification 'handleTransition'")
+          
+          if let delegate = delegate {
+            delegate.geoNotificationManager(self, didReceiveGeoTransition: geoNotification)
+            log(message: "Called didReceiveGeoTransition in GeoNotificationManager")
+          } else {
+            log(message: "GeoTransitionDelegate was nil at handleTransition", level: .error)
+          }
+//            NotificationCenter.default.post(name: NSNotification.Name(rawValue: "handleTransition"), object: geoNotification.rawString(String.Encoding.utf8, options: []))
         } else {
           log(message: "Unable to find region \(region.identifier) in store.", level: .warning)
       }
