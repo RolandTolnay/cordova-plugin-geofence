@@ -107,7 +107,6 @@ protocol GeoTransitionDelegate {
     static let ERROR_UNKNOWN = "UNKNOWN"
     
     lazy var geoNotificationManager = GeoNotificationManager()
-    let priority = DispatchQueue.GlobalQueuePriority.default
     
     override func pluginInitialize () {
         NotificationCenter.default.addObserver(
@@ -182,14 +181,12 @@ protocol GeoTransitionDelegate {
     
     @objc(addOrUpdate:)
     func addOrUpdate(command: CDVInvokedUrlCommand) {
-        //dispatch_async(dispatch_get_global_queue(priority, 0)) {
         DispatchQueue.global(qos: .default).async {
             let geo = command.arguments[0]
             self.geoNotificationManager.addOrUpdateGeoNotification(geoNotification: JSON(geo),
                                                                    completion: {
                 (errors: [[String:String]]?) -> Void in
                 
-                //dispatch_async(dispatch_get_main_queue()) {
                 DispatchQueue.main.async {
                     var pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
                     if (errors != nil) {
@@ -206,11 +203,10 @@ protocol GeoTransitionDelegate {
     
     @objc(getWatched:)
     func getWatched(command: CDVInvokedUrlCommand) {
-        //dispatch_async(dispatch_get_global_queue(priority, 0)) {
         DispatchQueue.global(qos: .background).async {
             let watched = self.geoNotificationManager.getWatchedGeoNotifications()!
             let watchedJsonString = watched.description
-            //dispatch_async(dispatch_get_main_queue()) {
+
             DispatchQueue.main.async {
                 let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK,
                                                    messageAs: watchedJsonString)
@@ -221,12 +217,11 @@ protocol GeoTransitionDelegate {
     
     @objc(remove:)
     func remove(command: CDVInvokedUrlCommand) {
-        //dispatch_async(dispatch_get_global_queue(priority, 0)) {
         DispatchQueue.global(qos: .background).async {
             for id in command.arguments {
                 self.geoNotificationManager.removeGeoNotification(id: id as! String)
             }
-            //dispatch_async(dispatch_get_main_queue()) {
+
             DispatchQueue.main.async {
                 let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
                 self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
@@ -236,10 +231,9 @@ protocol GeoTransitionDelegate {
     
     @objc(removeAll:)
     func removeAll(command: CDVInvokedUrlCommand) {
-        //dispatch_async(dispatch_get_global_queue(priority, 0)) {
         DispatchQueue.global(qos: .background).async {
             self.geoNotificationManager.removeAllGeoNotifications()
-            //dispatch_async(dispatch_get_main_queue()) {
+
             DispatchQueue.main.async {
                 let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
                 self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
