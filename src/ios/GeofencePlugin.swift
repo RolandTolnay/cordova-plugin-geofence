@@ -3,7 +3,7 @@
 //  ionic-geofence
 //
 //  Created by tomasz on 07/10/14.
-//
+//  Rewritten by roland.tolnay on 06/03/17
 //
 
 import Foundation
@@ -20,9 +20,9 @@ func log(message: String) {
     NSLog("%@ - %@", TAG, message)
 }
 
-func log(messages: [String]) {
-    for message in messages {
-        log(message: message)
+func log(warnings: [String]) {
+    for warning in warnings {
+        log(message: "[WARNING] \(warning)")
     }
 }
 
@@ -115,13 +115,6 @@ protocol GeoTransitionDelegate {
             name: NSNotification.Name(rawValue: "CDVLocalNotification"),
             object: nil
         )
-        
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(GeofencePlugin.didReceiveTransition(notification:)),
-            name: NSNotification.Name(rawValue: "handleTransition"),
-            object: nil
-        )
     }
     
     @objc(initialize:)
@@ -138,7 +131,7 @@ protocol GeoTransitionDelegate {
         
         let (ok, warnings, errors) = checkRequirements()
         
-        log(messages: warnings)
+        log(warnings: warnings)
         log(errors: errors)
         
         
@@ -241,11 +234,6 @@ protocol GeoTransitionDelegate {
         }
     }
     
-    @objc(didReceiveTransition:)
-    func didReceiveTransition (notification: NSNotification) {
-        
-    }
-    
     @objc(didReceiveLocalNotification:)
     func didReceiveLocalNotification (notification: NSNotification) {
         log(message: "didReceiveLocalNotification")
@@ -274,36 +262,14 @@ protocol GeoTransitionDelegate {
         }
     }
     
-    func makePostRequest(withString postString: String) {
-        log(message: "makePostRequest called")
-        
-        let url = URL(string: "http://smarthomegeo.getsandbox.com/signallocation")
-        var request = URLRequest(url: url!)
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpMethod = "POST"
-        
-        let deviceName = UIDevice.current.name
-        var postStringWithDevice = postString
-        postStringWithDevice.insert(contentsOf: "\"deviceName\":\"\(deviceName)\",".characters,
-                                    at: postString.index(after: postString.startIndex))
-        
-        request.httpBody = postStringWithDevice.data(using: .utf8)
-        let task = URLSession.shared.dataTask(with: request)
-        task.resume()
-    }
-    
     func geoNotificationManager(_ notificationManager: GeoNotificationManager,
                                 didReceiveGeoTransition transitionData: JSON) {
         log(message: "didReceiveGeoTransition called in GeofencePlugin")
-        
         if let geoNotificationString = transitionData.rawString(String.Encoding.utf8,
                                                                 options: []) {
             let js = "setTimeout('geofence.onTransitionReceived([" + geoNotificationString + "])',0)"
             
             evaluateJs(script: js)
-            makePostRequest(withString: geoNotificationString)
-        } else {
-            log(message: "Unable to parse transitionData to string at didReceiveGeoTransition")
         }
     }
 }
@@ -339,7 +305,7 @@ class GeoNotificationManager : NSObject, CLLocationManagerDelegate {
         
         let (ok, warnings, errors) = checkRequirements()
         
-        log(messages: warnings)
+        log(warnings: warnings)
         log(errors: errors)
         
         if (!ok) {
@@ -463,12 +429,7 @@ class GeoNotificationManager : NSObject, CLLocationManagerDelegate {
                 notifyAbout(geo: geoNotification)
             }
             
-            if let delegate = delegate {
-                delegate.geoNotificationManager(self, didReceiveGeoTransition: geoNotification)
-                log(message: "Called didReceiveGeoTransition in GeoNotificationManager")
-            } else {
-                log(message: "GeoTransitionDelegate was nil at handleTransition")
-            }
+            delegate?.geoNotificationManager(self, didReceiveGeoTransition: geoNotification)
         } else {
             log(message: "Unable to find region \(region.identifier) in store.")
         }
