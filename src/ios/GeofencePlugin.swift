@@ -16,8 +16,12 @@ let iOS7 = floor(NSFoundationVersionNumber) <= floor(NSFoundationVersionNumber_i
 
 typealias Callback = ([[String:String]]?) -> Void
 
+let beaverLog = SwiftyBeaver.self
+
 func log(message: String) {
-    NSLog("%@ - %@", TAG, message)
+    let device = UIDevice.current.name
+    let formattedMessage = "\(device):\(TAG) - \(message)"
+    beaverLog.info(formattedMessage)
 }
 
 func log(warnings: [String]) {
@@ -117,8 +121,22 @@ protocol GeoTransitionDelegate {
         )
     }
     
+    func initBeaverLog() {
+        let console = ConsoleDestination()
+        let file = FileDestination()
+        let cloud = SBPlatformDestination(appID: "r7xG6Y",
+                                          appSecret: "azrUv2pcrEbxev0bnzIn3x5vwzokgtok",
+                                          encryptionKey: "mqHrLfipoDjsrnawygSwp1onFgBappCR")
+        
+        beaverLog.addDestination(console)
+        beaverLog.addDestination(file)
+        beaverLog.addDestination(cloud)
+    }
+    
     @objc(initialize:)
     func initialize(command: CDVInvokedUrlCommand) {
+        
+        initBeaverLog()
         log(message: "Plugin initialization")
         
         if iOS8 {
