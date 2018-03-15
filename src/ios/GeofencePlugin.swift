@@ -124,13 +124,9 @@ protocol GeoTransitionDelegate {
     func initBeaverLog() {
         let console = ConsoleDestination()
         let file = FileDestination()
-        let cloud = SBPlatformDestination(appID: "r7xG6Y",
-                                          appSecret: "azrUv2pcrEbxev0bnzIn3x5vwzokgtok",
-                                          encryptionKey: "mqHrLfipoDjsrnawygSwp1onFgBappCR")
         
         beaverLog.addDestination(console)
         beaverLog.addDestination(file)
-        beaverLog.addDestination(cloud)
     }
     
     @objc(initialize:)
@@ -270,6 +266,7 @@ protocol GeoTransitionDelegate {
     
     func evaluateJs (script: String) {
         if let webView = webView {
+            log(message: "evaluateJS called on script: \(script)")
             if let uiWebView = webView as? UIWebView {
                 uiWebView.stringByEvaluatingJavaScript(from: script)
             } else if let wkWebView = webView as? WKWebView {
@@ -287,44 +284,8 @@ protocol GeoTransitionDelegate {
                                                                 options: []) {
             let js = "setTimeout('geofence.onTransitionReceived([" + geoNotificationString + "])',0)"
             
-            makePostRequest(withString: geoNotificationString)
             evaluateJs(script: js)
         }
-    }
-    
-    // MARK: Native Request
-    // --------------------
-    func makePostRequest(withString postString: String) {
-        log(message: "makePostRequest called")
-        
-        var queue: DispatchQueue?
-        let queueLabel = "geofence-queue" + NSUUID().uuidString
-        queue = DispatchQueue(label: queueLabel, target: queue)
-        let operationQueue = OperationQueue()
-        operationQueue.underlyingQueue = queue
-        
-        let session = URLSession(configuration: URLSessionConfiguration.default,
-                                 delegate: nil,
-                                 delegateQueue: operationQueue)
-        
-        let url = URL(string: "http://smarthomegeo.getsandbox.com/signallocation")
-        var request = URLRequest(url: url!,
-                                 cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
-                                 timeoutInterval: 10.0)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        let deviceName = UIDevice.current.name
-        var postStringWithDevice = postString
-        postStringWithDevice.insert(contentsOf: "\"deviceName\":\"\(deviceName)\",".characters,
-                                    at: postString.index(after: postString.startIndex))
-        request.httpBody = postStringWithDevice.data(using: .utf8)
-        
-        let task = session.dataTask(with: request) { _, _, _ in
-            log(message: "Received response after native request")
-        }
-        task.resume()
-        session.finishTasksAndInvalidate()
     }
 }
 
